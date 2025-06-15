@@ -2,14 +2,14 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portefeuille de Guerre</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Portefeuille de Guerre - Version Avancée</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-100 font-sans">
   <div class="max-w-7xl mx-auto p-6">
-    <h1 class="text-3xl font-bold mb-4">📊 Portefeuille de Guerre</h1>
+    <h1 class="text-3xl font-bold mb-4">📊 Portefeuille de Guerre - Version Avancée</h1>
     <table class="min-w-full bg-white rounded-xl shadow overflow-hidden">
       <thead class="bg-gray-200 text-gray-700">
         <tr>
@@ -18,11 +18,10 @@
           <th class="px-6 py-3 text-left">Pays</th>
           <th class="px-6 py-3 text-left">Score Total</th>
           <th class="px-6 py-3 text-left">Cours Actuel ($)</th>
+          <th class="px-6 py-3 text-left">Alerte</th>
         </tr>
       </thead>
-      <tbody id="portfolio-body" class="text-gray-800">
-        <!-- Les données seront insérées ici dynamiquement -->
-      </tbody>
+      <tbody id="portfolio-body" class="text-gray-800"></tbody>
     </table>
 
     <div class="mt-10">
@@ -39,19 +38,24 @@
   </div>
 
   <script>
+    // Données de base
     const data = [
-      { entreprise: "Elbit Systems", secteur: "Défense", pays: "Israël", score: 6, symbol: "ESLT" },
-      { entreprise: "Palantir", secteur: "Tech stratégique", pays: "USA", score: 6, symbol: "PLTR" },
-      { entreprise: "Check Point Software", secteur: "Cybersécurité", pays: "Israël", score: 5, symbol: "CHKP" },
-      { entreprise: "CrowdStrike", secteur: "Cybersécurité", pays: "USA", score: 5, symbol: "CRWD" },
-      { entreprise: "Lockheed Martin", secteur: "Défense", pays: "USA", score: 4, symbol: "LMT" },
-      { entreprise: "Chevron", secteur: "Énergie", pays: "USA", score: 4, symbol: "CVX" },
-      { entreprise: "Palo Alto Networks", secteur: "Cybersécurité", pays: "USA", score: 4, symbol: "PANW" },
-      { entreprise: "Northrop Grumman", secteur: "Défense", pays: "USA", score: 3, symbol: "NOC" },
-      { entreprise: "TotalEnergies", secteur: "Énergie", pays: "France", score: 3, symbol: "TTE" },
-      { entreprise: "Caterpillar", secteur: "Infrastructure", pays: "USA", score: 3, symbol: "CAT" }
+      { entreprise: "Elbit Systems", secteur: "Défense", pays: "Israël", score: 6, symbol: "ESLT", seuilAlerte: 70 },
+      { entreprise: "Palantir", secteur: "Tech stratégique", pays: "USA", score: 6, symbol: "PLTR", seuilAlerte: 25 },
+      { entreprise: "Check Point Software", secteur: "Cybersécurité", pays: "Israël", score: 5, symbol: "CHKP", seuilAlerte: 120 },
+      { entreprise: "CrowdStrike", secteur: "Cybersécurité", pays: "USA", score: 5, symbol: "CRWD", seuilAlerte: 130 },
+      { entreprise: "Lockheed Martin", secteur: "Défense", pays: "USA", score: 4, symbol: "LMT", seuilAlerte: 380 },
+      { entreprise: "Chevron", secteur: "Énergie", pays: "USA", score: 4, symbol: "CVX", seuilAlerte: 160 },
+      { entreprise: "Palo Alto Networks", secteur: "Cybersécurité", pays: "USA", score: 4, symbol: "PANW", seuilAlerte: 180 },
+      { entreprise: "Northrop Grumman", secteur: "Défense", pays: "USA", score: 3, symbol: "NOC", seuilAlerte: 460 },
+      { entreprise: "TotalEnergies", secteur: "Énergie", pays: "France", score: 3, symbol: "TTE", seuilAlerte: 55 },
+      { entreprise: "Caterpillar", secteur: "Infrastructure", pays: "USA", score: 3, symbol: "CAT", seuilAlerte: 230 }
     ];
 
+    // Stocke les prix précédents pour détecter changement
+    let previousPrices = {};
+
+    // Fonction pour récupérer le cours actuel d'une action
     async function fetchStock(symbol) {
       try {
         const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1d`);
@@ -59,32 +63,69 @@
         const price = json.chart.result[0].meta.regularMarketPrice;
         return price.toFixed(2);
       } catch (e) {
-        return "N/A";
+        return null;
       }
     }
 
+    // Affiche une notification simple (pop-up)
+    function notify(message) {
+      if (Notification.permission === "granted") {
+        new Notification("Alerte Portefeuille Guerre", { body: message });
+      } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then(permission => {
+          if (permission === "granted") {
+            new Notification("Alerte Portefeuille Guerre", { body: message });
+          }
+        });
+      }
+    }
+
+    // Initialisation du portefeuille avec alertes et comparaison des prix
     async function initPortfolio() {
       const tbody = document.getElementById("portfolio-body");
       tbody.innerHTML = "";
+
       for (const entry of data) {
         const price = await fetchStock(entry.symbol);
+
+        // Stocke le prix précédent ou initial
+        const oldPrice = previousPrices[entry.symbol];
+        previousPrices[entry.symbol] = price;
+
+        // Vérification d’alerte selon seuil
+        let alerteText = "";
+        if (price !== null) {
+          if (price >= entry.seuilAlerte) {
+            alerteText = "🚨 Prix élevé !";
+            if (!oldPrice || oldPrice < entry.seuilAlerte) notify(`L'action ${entry.entreprise} a dépassé le seuil à ${price} $`);
+          } else if (oldPrice && oldPrice >= entry.seuilAlerte && price < entry.seuilAlerte) {
+            notify(`L'action ${entry.entreprise} est redescendue sous le seuil à ${price} $`);
+          }
+        } else {
+          alerteText = "N/A";
+        }
+
         const row = document.createElement("tr");
-        const alertClass = entry.score >= 6 ? "bg-green-100 font-bold" : "";
-        row.className = alertClass;
+        row.className = entry.score >= 6 ? "bg-green-100 font-bold" : "";
         row.innerHTML = `
           <td class="px-6 py-4">${entry.entreprise}</td>
           <td class="px-6 py-4">${entry.secteur}</td>
           <td class="px-6 py-4">${entry.pays}</td>
           <td class="px-6 py-4">${entry.score}</td>
-          <td class="px-6 py-4">${price}</td>
+          <td class="px-6 py-4">${price !== null ? price : "N/A"}</td>
+          <td class="px-6 py-4 font-semibold">${alerteText}</td>
         `;
         tbody.appendChild(row);
       }
     }
 
+    // Graphe des scores
     function renderChart() {
       const ctx = document.getElementById("scoreChart").getContext("2d");
-      const chart = new Chart(ctx, {
+      if(window.scoreChartInstance) {
+        window.scoreChartInstance.destroy();
+      }
+      window.scoreChartInstance = new Chart(ctx, {
         type: "bar",
         data: {
           labels: data.map(d => d.entreprise),
@@ -107,17 +148,29 @@
       });
     }
 
+    // Analyse stratégique plus poussée avec conseils
     function analyseStrategique() {
       const conseil = document.getElementById("conseil-strategique");
       const scoreMoyen = data.reduce((acc, cur) => acc + cur.score, 0) / data.length;
-      const topSecteur = data.reduce((acc, cur) => {
+      const secteurScores = data.reduce((acc, cur) => {
         acc[cur.secteur] = (acc[cur.secteur] || 0) + cur.score;
         return acc;
       }, {});
-      const secteurDominant = Object.entries(topSecteur).sort((a, b) => b[1] - a[1])[0][0];
-      conseil.innerText = `Score moyen du portefeuille : ${scoreMoyen.toFixed(2)}. Tendance dominante : ${secteurDominant}. Pensez à renforcer les positions dans ce secteur si la tension persiste.`;
+      const secteurDominant = Object.entries(secteurScores).sort((a, b) => b[1] - a[1])[0][0];
+
+      let message = `Score moyen du portefeuille : ${scoreMoyen.toFixed(2)}. `;
+      message += `Le secteur dominant est "${secteurDominant}". `;
+      if(scoreMoyen > 4.5) {
+        message += "Le portefeuille est solide. Continuez à renforcer les positions clés.";
+      } else if(scoreMoyen > 3) {
+        message += "Soyez vigilant, le contexte est instable. Ajustez les positions en fonction des alertes.";
+      } else {
+        message += "Attention, le portefeuille montre des signes de faiblesse. Considérez une réévaluation stratégique.";
+      }
+      conseil.innerText = message;
     }
 
+    // Chargement des actualités géopolitiques (API NewsAPI - nécessite clé API)
     async function chargerActus() {
       const newsFeed = document.getElementById("news-feed");
       try {
@@ -130,10 +183,23 @@
       }
     }
 
-    renderChart();
-    initPortfolio();
-    analyseStrategique();
-    chargerActus();
+    // Mise à jour automatique toutes les 5 minutes
+    async function autoUpdate() {
+      await initPortfolio();
+      renderChart();
+      analyseStrategique();
+    }
+
+    // Démarrage
+    (async () => {
+      if ("Notification" in window && Notification.permission !== "granted") {
+        await Notification.requestPermission();
+      }
+      await autoUpdate();
+      await chargerActus();
+      setInterval(autoUpdate, 300000); // toutes les 5 minutes
+    })();
   </script>
 </body>
 </html>
+
