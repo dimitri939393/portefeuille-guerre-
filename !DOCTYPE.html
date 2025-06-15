@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portefeuille de Guerre</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-3xl font-bold mb-4">📊 Portefeuille de Guerre</h1>
+    <table class="min-w-full bg-white rounded-xl shadow overflow-hidden">
+      <thead class="bg-gray-200 text-gray-700">
+        <tr>
+          <th class="px-6 py-3 text-left">Entreprise</th>
+          <th class="px-6 py-3 text-left">Secteur</th>
+          <th class="px-6 py-3 text-left">Pays</th>
+          <th class="px-6 py-3 text-left">Score Total</th>
+          <th class="px-6 py-3 text-left">Cours Actuel ($)</th>
+        </tr>
+      </thead>
+      <tbody id="portfolio-body" class="text-gray-800">
+        <!-- Les données seront insérées ici dynamiquement -->
+      </tbody>
+    </table>
+
+    <div class="mt-10">
+      <canvas id="scoreChart" height="120"></canvas>
+    </div>
+
+    <div class="mt-10 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700" id="conseil-strategique">
+      Chargement des conseils stratégiques...
+    </div>
+
+    <div class="mt-10 p-4 bg-blue-100 border-l-4 border-blue-500 text-blue-700" id="news-feed">
+      Chargement des actualités géopolitiques...
+    </div>
+  </div>
+
+  <script>
+    const data = [
+      { entreprise: "Elbit Systems", secteur: "Défense", pays: "Israël", score: 6, symbol: "ESLT" },
+      { entreprise: "Palantir", secteur: "Tech stratégique", pays: "USA", score: 6, symbol: "PLTR" },
+      { entreprise: "Check Point Software", secteur: "Cybersécurité", pays: "Israël", score: 5, symbol: "CHKP" },
+      { entreprise: "CrowdStrike", secteur: "Cybersécurité", pays: "USA", score: 5, symbol: "CRWD" },
+      { entreprise: "Lockheed Martin", secteur: "Défense", pays: "USA", score: 4, symbol: "LMT" },
+      { entreprise: "Chevron", secteur: "Énergie", pays: "USA", score: 4, symbol: "CVX" },
+      { entreprise: "Palo Alto Networks", secteur: "Cybersécurité", pays: "USA", score: 4, symbol: "PANW" },
+      { entreprise: "Northrop Grumman", secteur: "Défense", pays: "USA", score: 3, symbol: "NOC" },
+      { entreprise: "TotalEnergies", secteur: "Énergie", pays: "France", score: 3, symbol: "TTE" },
+      { entreprise: "Caterpillar", secteur: "Infrastructure", pays: "USA", score: 3, symbol: "CAT" }
+    ];
+
+    async function fetchStock(symbol) {
+      try {
+        const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1d`);
+        const json = await res.json();
+        const price = json.chart.result[0].meta.regularMarketPrice;
+        return price.toFixed(2);
+      } catch (e) {
+        return "N/A";
+      }
+    }
+
+    async function initPortfolio() {
+      const tbody = document.getElementById("portfolio-body");
+      tbody.innerHTML = "";
+      for (const entry of data) {
+        const price = await fetchStock(entry.symbol);
+        const row = document.createElement("tr");
+        const alertClass = entry.score >= 6 ? "bg-green-100 font-bold" : "";
+        row.className = alertClass;
+        row.innerHTML = `
+          <td class="px-6 py-4">${entry.entreprise}</td>
+          <td class="px-6 py-4">${entry.secteur}</td>
+          <td class="px-6 py-4">${entry.pays}</td>
+          <td class="px-6 py-4">${entry.score}</td>
+          <td class="px-6 py-4">${price}</td>
+        `;
+        tbody.appendChild(row);
+      }
+    }
+
+    function renderChart() {
+      const ctx = document.getElementById("scoreChart").getContext("2d");
+      const chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: data.map(d => d.entreprise),
+          datasets: [{
+            label: "Score Total",
+            data: data.map(d => d.score),
+            backgroundColor: "rgba(59, 130, 246, 0.7)"
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: {
+              display: true,
+              text: "Scores des entreprises du portefeuille"
+            }
+          }
+        }
+      });
+    }
+
+    function analyseStrategique() {
+      const conseil = document.getElementById("conseil-strategique");
+      const scoreMoyen = data.reduce((acc, cur) => acc + cur.score, 0) / data.length;
+      const topSecteur = data.reduce((acc, cur) => {
+        acc[cur.secteur] = (acc[cur.secteur] || 0) + cur.score;
+        return acc;
+      }, {});
+      const secteurDominant = Object.entries(topSecteur).sort((a, b) => b[1] - a[1])[0][0];
+      conseil.innerText = `Score moyen du portefeuille : ${scoreMoyen.toFixed(2)}. Tendance dominante : ${secteurDominant}. Pensez à renforcer les positions dans ce secteur si la tension persiste.`;
+    }
+
+    async function chargerActus() {
+      const newsFeed = document.getElementById("news-feed");
+      try {
+        const res = await fetch("https://newsapi.org/v2/everything?q=Israel%20Iran%20conflit&sortBy=publishedAt&apiKey=YOUR_API_KEY");
+        const json = await res.json();
+        const articles = json.articles.slice(0, 5);
+        newsFeed.innerHTML = articles.map(a => `<p class="mb-2"><a href="${a.url}" target="_blank" class="underline font-semibold">${a.title}</a> - ${a.source.name}</p>`).join("");
+      } catch (e) {
+        newsFeed.innerText = "Impossible de charger les actualités. Vérifiez la clé API.";
+      }
+    }
+
+    renderChart();
+    initPortfolio();
+    analyseStrategique();
+    chargerActus();
+  </script>
+</body>
+</html>
