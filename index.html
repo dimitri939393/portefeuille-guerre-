@@ -174,7 +174,7 @@
     async function chargerActus() {
       const newsFeed = document.getElementById("news-feed");
       try {
-        const res = await fetch("https://newsapi.org/v2/everything?q=Israel%20Iran%20conflit&sortBy=publishedAt&apiKey=YOUR_API_KEY");
+        const res = await fetch("https://newsapi.org/v2/everything?q=Israel%20Iran%20conflit&sortBy=publishedAt&apiKey=ea958a1717734455b2619abd59caefab");
         const json = await res.json();
         const articles = json.articles.slice(0, 5);
         newsFeed.innerHTML = articles.map(a => `<p class="mb-2"><a href="${a.url}" target="_blank" class="underline font-semibold">${a.title}</a> - ${a.source.name}</p>`).join("");
